@@ -187,13 +187,14 @@ for fname in images:
     # compute homography
     ret, R, T = ComputePoseFromHomography(new_intrinsics,referencePoints,
                                           imagePoints)
-    savR[imgNum] = R
-    savT[imgNum] = T
-    imgNum += 1
+
     render_frame = current_frame
     if(ret):
         # compute the projection and render the cube
         render_frame = renderCube(current_frame,new_intrinsics,R,T) 
+        savR[imgNum] = R
+        savT[imgNum] = T
+        imgNum += 1
         
     # display the current image frame
     cv2.imshow('frame', render_frame)
@@ -212,5 +213,6 @@ for i in range(imgNum - 1):
     relR[i + 1] = np.matmul(savR[i + 1], savR[fromimg])
     relT[i + 1] = savT[i + 1] - np.matmul(np.matmul(savR[i + 1], savR[fromimg].T), savT[fromimg])
 # save relative R & T in .mat
-spio.savemat("relR.mat", relR)
-spio.savemat("relT.mat", relT)
+# print(relR.reshape((relR.size//3, 3)))
+spio.savemat("relR.mat", {"R":relR}) # .reshape((relR.size//3, 3))})
+spio.savemat("relT.mat", {"T":relT}) # .reshape((relT.size//3, 3))})

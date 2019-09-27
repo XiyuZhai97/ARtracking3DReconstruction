@@ -126,7 +126,8 @@ intrinsics, distortion, new_intrinsics, roi = \
 # the 0 value should default to the webcam, but you may need to change this
 # for your camera, especially if you are using a camera besides the default
 cap = cv2.VideoCapture(0)
-
+matchflag = False
+renderflag = True
 while True:
     # read the current frame from the webcam
     ret, current_frame = cap.read()
@@ -158,41 +159,41 @@ while True:
 
     # create a visualization of the matches between the reference and the
     # current image
-
-    # match_visualization = cv2.drawMatches(reference, reference_keypoints, current_frame,
-    #                         current_keypoints, matches, 0, 
-    #                         flags=
-    #                         cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
-    # cv2.imshow('matches',match_visualization)
-    # k = cv2.waitKey(1)
-    # if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively
-    #     #exit
-    #     break
+    if(matchflag):
+        match_visualization = cv2.drawMatches(reference, reference_keypoints, current_frame,
+                                current_keypoints, matches, 0, 
+                                flags=
+                                cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
+        cv2.imshow('matches',match_visualization)
+        k = cv2.waitKey(1)
+        if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively
+            #exit
+            break
 
     # set up reference points and image points
     # here we get the 2d position of all features in the reference image
-
-    referencePoints = np.float32([reference_keypoints[m.queryIdx].pt \
-                                  for m in matches])
-    # convert positions from pixels to meters
-    SCALE = 0.1 # this is the scale of our reference image: 0.1m x 0.1m
-    referencePoints = SCALE*referencePoints/RES
-    
-    imagePoints = np.float32([current_keypoints[m.trainIdx].pt \
-                                  for m in matches])
-    # compute homography
-    ret, R, T = ComputePoseFromHomography(new_intrinsics,referencePoints,
-                                          imagePoints)
-    # if(ret):    
-    #     print(T)
-    render_frame = current_frame
-    if(ret):
-        # compute the projection and render the cube
-        render_frame = renderCube(current_frame,new_intrinsics,R,T) 
+    if(renderflag):
+        referencePoints = np.float32([reference_keypoints[m.queryIdx].pt \
+                                    for m in matches])
+        # convert positions from pixels to meters
+        SCALE = 0.1 # this is the scale of our reference image: 0.1m x 0.1m
+        referencePoints = SCALE*referencePoints/RES
         
-    # display the current image frame
-    cv2.imshow('frame', render_frame)
-    k = cv2.waitKey(1)
-    if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively
-        #exit
-        break
+        imagePoints = np.float32([current_keypoints[m.trainIdx].pt \
+                                    for m in matches])
+        # compute homography
+        ret, R, T = ComputePoseFromHomography(new_intrinsics,referencePoints,
+                                            imagePoints)
+        # if(ret):    
+        #     print(T)
+        render_frame = current_frame
+        if(ret):
+            # compute the projection and render the cube
+            render_frame = renderCube(current_frame,new_intrinsics,R,T) 
+            
+        # display the current image frame
+        cv2.imshow('frame', render_frame)
+        k = cv2.waitKey(1)
+        if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively
+            #exit
+            break
