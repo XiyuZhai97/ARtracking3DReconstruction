@@ -12,16 +12,38 @@ relT = spio.loadmat("relT.mat")['T']
 # and a rotation and translation between the images, and a threshold parameter.
 # The function should return an array of either 0 or 1 for each point, 
 # where 1 represents an inlier and 0 an outlier (outlier = incorrect match). 
-filterflag = False
+filterflag = True
 def FilterByEpipolarConstraint(intrinsics, matches, points1, points2, Rx1, Tx1,
-                               threshold = 0.01):
+                               threshold = 0.005):
     # your code here
-    inlier_mask = 0
+    fx = intrinsics[0][0]
+    fy = intrinsics[1][1]
+    cx = intrinsics[0][2]
+    cy = intrinsics[1][2]
+    points1_3 = np.zeros((points1.shape[0], 3))
+    points2_3 = np.zeros((points2.shape[0], 3))
+    
+    E = np.cross(Tx1, Rx1, axisa = 0, axisb = 0)
+    # print(E)
+    # print(points1)
+    inlier_mask = np.zeros(points1.shape[0])
+    real_inlier_mask = np.zeros(points1.shape[0])
+    for i in range(points1.shape[0]):
+        points1_3[i] = [(points1[i][0] - cx)/fx, (points1[i][1] - cy)/fy, 1]
+        points2_3[i] = [(points2[i][0] - cx)/fx, (points2[i][1] - cy)/fy, 1]
+        
+        real_inlier_mask[i] = abs(points2_3[i].dot(E).dot(points1_3[i].T))
+        if abs(points2_3[i].dot(E).dot(points1_3[i].T)) < threshold:
+            inlier_mask[i] = 1
+        else:inlier_mask[i] = 0
+    # print("real", real_inlier_mask)
+    # print(inlier_mask)
     return inlier_mask 
 
 images = glob.glob('Mobile_Ref_data'+'/*.jpeg')
+images.sort()
 # Load the reference image that we will try to detect in the webcam
-reference = cv2.imread(images[0],0)
+reference = cv2.imread(images[0])
 RES = 480
 reference = cv2.resize(reference,(RES,RES))
 # create the feature detector. This will be used to find and describe locations
@@ -43,6 +65,7 @@ intrinsics, distortion, new_intrinsics, roi = \
         calib.LoadCalibrationData('mobile_calib_data')
 
 imgNum = 0
+inlier_mask_sav = 
 for fname in images:
     # read the image
     print(fname)
@@ -61,13 +84,18 @@ for fname in images:
     # detect features in the current image
     current_keypoints, current_descriptors = \
         feature_detector.detectAndCompute(current_frame, None)
-        
     # match the features from the reference image to the current image
 
     matches = matcher.match(reference_descriptors, current_descriptors)
-    print("matches", matches)
+    # print("matches", matches)
+    referencePoints = np.float32([reference_keypoints[m.queryIdx].pt \
+                                  for m in matches])
+    
+    imagePoints = np.float32([current_keypoints[m.trainIdx].pt \
+                                  for m in matches])
     if(filterflag):
-        inlier_mask = FilterByEpipolarConstraint(intrinsics, matches, points1, points2, Rx1, Tx1, threshold = 0.01)
+        
+        inlier_mask = FilterByEpipolarConstraint(intrinsics, matches, referencePoints, imagePoints, relR[imgNum], relT[imgNum], threshold = 0.01)
                                
         match_visualization = cv2.drawMatches(reference, reference_keypoints, current_frame,
                             current_keypoints, matches, 0, 
@@ -81,6 +109,7 @@ for fname in images:
                                 cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
 
     cv2.imshow('matches',match_visualization)
+    imgNum += 1
     k = cv2.waitKey(1)
     time.sleep(2)
     if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively

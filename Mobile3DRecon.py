@@ -130,6 +130,7 @@ intrinsics, distortion, new_intrinsics, roi = \
 # for your camera, especially if you are using a camera besides the default
 # cap = cv2.VideoCapture(0)
 images = glob.glob('Mobile_Ref_data'+'/*.jpeg')
+images.sort()  # ensure the sequence in R, T
 savR = np.zeros((len(images), 3, 3))
 savT = np.zeros((len(images), 3))
 imgNum = 0
@@ -192,10 +193,10 @@ for fname in images:
     if(ret):
         # compute the projection and render the cube
         render_frame = renderCube(current_frame,new_intrinsics,R,T) 
-        savR[imgNum] = R
-        savT[imgNum] = T
-        imgNum += 1
-        
+    savR[imgNum] = R
+    savT[imgNum] = T
+    imgNum += 1
+    
     # display the current image frame
     cv2.imshow('frame', render_frame)
     k = cv2.waitKey(1)
