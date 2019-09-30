@@ -174,7 +174,6 @@ for fname in images[1:]:
     cv2.imshow('track>=4, matches_after filter',match_visualization)
     M = np.zeros((3*len(matches), len(matches) + 1))
     print(len(matches))
-    
     fx = intrinsics[0][0]
     fy = intrinsics[1][1]
     cx = intrinsics[0][2]
@@ -185,11 +184,11 @@ for fname in images[1:]:
     your_pointCloud = np.zeros((len(matches), 3))
 
     for i in range(imagePoints.shape[0]):
-        # points1_3[i] = [(imagePoints[i][0] - cx)/fx, (imagePoints[i][1] - cy)/fy, 1]
-        # points2_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
+        points1_3[i] = [(imagePoints[i][0] - cx)/fx, (imagePoints[i][1] - cy)/fy, 1]
+        points2_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
         
-        points1_3[i] = np.append(imagePoints[i], 1)
-        points2_3[i] = np.append(referencePoints[i], 1)
+        # pointsb1_3[i] = np.append(imagePoints[i], 1)
+        # pointsb2_3[i] = np.append(referencePoints[i], 1)
     for i in range(len(matches)):
 
         M[i*3][i] = np.cross(points1_3[i], relR[imgNum], axisa = 0, axisb = 0).dot(points2_3[i])[0]
@@ -199,13 +198,21 @@ for fname in images[1:]:
         M[i*3][len(matches)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[0]
         M[i*3+1][len(matches)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[1]
         M[i*3+1][len(matches)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[2]
-    print("M", M)
     W,U,Vt = cv2.SVDecomp(M)
+    print("Vt", Vt)
+
     depths = Vt[-1,:]/Vt[-1,-1]
+    print(len(depths))
+    print("depths", depths)
+    print("depths max", np.max(depths))
 
     for i in range(len(matches)):
-        your_pointCloud[i] = points2_3[i] * [1, 1, depths[i]]
-    print(your_pointCloud)
+        if abs(depths[i]) < 10:
+            your_pointCloud[i] = points2_3[i] * [1, 1, depths[i]]
+    print(np.max(your_pointCloud, axis = 0))
+    print(np.where(your_pointCloud == np.max(your_pointCloud, axis = 0)[2]))
+
+    np.savetxt('your_pointCloud.txt', your_pointCloud)
     imgNum += 1
     k = cv2.waitKey(1)
 
