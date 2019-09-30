@@ -182,22 +182,25 @@ for fname in images[1:]:
     points2_3 = np.zeros((referencePoints.shape[0], 3))
 
     your_pointCloud = np.zeros((len(matches), 3))
-
+    E = np.cross(relT[imgNum], relR[imgNum], axisa = 0, axisb = 0)
+    threshold = 0.005
     for i in range(imagePoints.shape[0]):
         points1_3[i] = [(imagePoints[i][0] - cx)/fx, (imagePoints[i][1] - cy)/fy, 1]
         points2_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
-        
         # pointsb1_3[i] = np.append(imagePoints[i], 1)
         # pointsb2_3[i] = np.append(referencePoints[i], 1)
-    for i in range(len(matches)):
+        if abs(points2_3[i].dot(E).dot(points1_3[i].T)) > threshold:
+            np.delete(points1_3, i, axis = 0)
+            np.delete(points2_3, i, axis = 0)
+    for i in range(len(points1_3)):
 
         M[i*3][i] = np.cross(points1_3[i], relR[imgNum], axisa = 0, axisb = 0).dot(points2_3[i])[0]
         M[i*3+1][i] = np.cross(points1_3[i], relR[imgNum], axisa = 0, axisb = 0).dot(points2_3[i])[1]
         M[i*3+2][i] = np.cross(points1_3[i], relR[imgNum], axisa = 0, axisb = 0).dot(points2_3[i])[2]
 
-        M[i*3][len(matches)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[0]
-        M[i*3+1][len(matches)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[1]
-        M[i*3+1][len(matches)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[2]
+        M[i*3][len(points1_3)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[0]
+        M[i*3+1][len(points1_3)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[1]
+        M[i*3+1][len(points1_3)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[2]
     W,U,Vt = cv2.SVDecomp(M)
     print("Vt", Vt)
 
@@ -206,8 +209,8 @@ for fname in images[1:]:
     print("depths", depths)
     print("depths max", np.max(depths))
 
-    for i in range(len(matches)):
-        if abs(depths[i]) < 10:
+    for i in range(len(points1_3)):
+        if abs(depths[i]) < 2:
             your_pointCloud[i] = points2_3[i] * [1, 1, depths[i]]
     print(np.max(your_pointCloud, axis = 0))
     print(np.where(your_pointCloud == np.max(your_pointCloud, axis = 0)[2]))

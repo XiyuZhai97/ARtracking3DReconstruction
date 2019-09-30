@@ -201,7 +201,7 @@ for fname in images:
     # display the current image frame
     cv2.imshow('frame', render_frame)
     k = cv2.waitKey(1)
-    # time.sleep(1)
+    # time.sleep(3)
 
     if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively
         #exit
@@ -218,3 +218,4 @@ for i in range(imgNum - 1):
 # print(relR.reshape((relR.size//3, 3)))
 spio.savemat("relR.mat", {"R":relR}) # .reshape((relR.size//3, 3))})
 spio.savemat("relT.mat", {"T":relT}) # .reshape((relT.size//3, 3))})
+print("R,T saved")
