@@ -5,16 +5,9 @@ import glob
 import time
 import scipy.io as spio
 import open3d as o3d
-
 relR = spio.loadmat("relR.mat")['R']
 relT = spio.loadmat("relT.mat")['T']
 
-# a function that takes in: the camera intrinsic matrix, 
-# a set of matches between two images, a set of points in each image, 
-# and a rotation and translation between the images, and a threshold parameter.
-# The function should return an array of either 0 or 1 for each point, 
-# where 1 represents an inlier and 0 an outlier (outlier = incorrect match). 
-filterflag = True
 def FilterByEpipolarConstraint(intrinsics, matches, points1, points2, Rx1, Tx1,
                                threshold = 0.005):
     # your code here
@@ -24,120 +17,73 @@ def FilterByEpipolarConstraint(intrinsics, matches, points1, points2, Rx1, Tx1,
     cy = intrinsics[1][2]
     points1_3 = np.zeros((points1.shape[0], 3))
     points2_3 = np.zeros((points2.shape[0], 3))
-    
     E = np.cross(Tx1, Rx1, axisa = 0, axisb = 0)
-    # print(E)
-    # print(points1)
     inlier_mask = np.zeros(points1.shape[0])
     real_inlier_mask = np.zeros(points1.shape[0])
     for i in range(points1.shape[0]):
         points1_3[i] = [(points1[i][0] - cx)/fx, (points1[i][1] - cy)/fy, 1]
         points2_3[i] = [(points2[i][0] - cx)/fx, (points2[i][1] - cy)/fy, 1]
-        
         real_inlier_mask[i] = abs(points2_3[i].dot(E).dot(points1_3[i].T))
         if abs(points2_3[i].dot(E).dot(points1_3[i].T)) < threshold:
             inlier_mask[i] = 1
         else:inlier_mask[i] = 0
-    # print("real", real_inlier_mask)
-    # print(inlier_mask)
     return inlier_mask 
 
 images = glob.glob('Mobile_Ref_data'+'/*.jpeg')
 images.sort()
-# Load the reference image that we will try to detect in the webcam
 reference = cv2.imread(images[0])
 RES = 480
 reference = cv2.resize(reference,(RES,RES))
-# create the feature detector. This will be used to find and describe locations
-# in the image that we can reliably detect in multiple images
 feature_detector = cv2.BRISK_create(octaves=5)
-# compute the features in the reference image
 reference_keypoints, reference_descriptors = \
         feature_detector.detectAndCompute(reference, None)
-
 keypoint_visualization = cv2.drawKeypoints(
         reference,reference_keypoints,outImage=np.array([]), 
         flags = cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-# display the image
 cv2.imshow("Keypoints",keypoint_visualization)
 matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-# Load the camera calibration matrix
 intrinsics, distortion, new_intrinsics, roi = \
         calib.LoadCalibrationData('mobile_calib_data')
-
+fx = intrinsics[0][0]
+fy = intrinsics[1][1]
+cx = intrinsics[0][2]
+cy = intrinsics[1][2]
 imgNum = 0
-feature_track = np.zeros(len(reference_keypoints)) 
+feature_track = {}
 for fname in images:
-    # read the image
     print(fname)
     cap = cv2.imread(fname)
-    # read the current frame from the webcam
     current_frame = cv2.resize(cap,(RES,RES))
-    
-    # undistort the current frame using the loaded calibration
     current_frame = cv2.undistort(current_frame, intrinsics, distortion, None,\
                                   new_intrinsics)
-    # apply region of interest cropping
     x, y, w, h = roi
     current_frame = current_frame[y:y+h, x:x+w]
-    
-    # detect features in the current image
     current_keypoints, current_descriptors = \
-        feature_detector.detectAndCompute(current_frame, None)
-    # match the features from the reference image to the current image
-    
+        feature_detector.detectAndCompute(current_frame, None)    
     matches = matcher.match(reference_descriptors, current_descriptors)
     for m in matches:
-        feature_track[m.queryIdx] += 1 
-
-    # referencePoints = np.float32([reference_keypoints[m.queryIdx].pt \
-    #                               for m in matches])
-    # imagePoints = np.float32([current_keypoints[m.trainIdx].pt \
-    #                               for m in matches])
-    # inlier_mask = FilterByEpipolarConstraint(intrinsics, matches, referencePoints, imagePoints, relR[imgNum], relT[imgNum], threshold = 0.01)                 
-    # match_visualization = cv2.drawMatches(reference, reference_keypoints, current_frame,
-    #                     current_keypoints, matches, 0, 
-    #                     matchesMask =inlier_mask, #this applies your inlier filter
-    #                     flags=
-    #                     cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
-    # cv2.imshow('matches_after filter',match_visualization)
-    # match_visualization = cv2.drawMatches(reference, reference_keypoints, current_frame,
-    #                         current_keypoints, matches, 0, 
-    #                         flags=
-    #                         cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
-
-    # cv2.imshow('matches',match_visualization)
-    # k = cv2.waitKey(1)
-    # # time.sleep(2)
-    # if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively
-    #     #exit
-    #     break
+        # print(m.queryIdx)
+        if m.queryIdx in feature_track:
+            feature_track[m.queryIdx] += 1 
+        else:
+            feature_track[m.queryIdx] = 1 
     imgNum += 1
-print(feature_track)
 cv2.destroyAllWindows()
-imgNum = 0
+print("feature_track", len(feature_track))
+imgNum = 1
+M = np.zeros((0, len(reference_keypoints) + 1))
 
 for fname in images[1:]:
-    # read the image
     print(fname)
     cap = cv2.imread(fname)
-    # read the current frame from the webcam
     current_frame = cv2.resize(cap,(RES,RES))
-    # undistort the current frame using the loaded calibration
     current_frame = cv2.undistort(current_frame, intrinsics, distortion, None,\
                                   new_intrinsics)
-    # apply region of interest cropping
     x, y, w, h = roi
     current_frame = current_frame[y:y+h, x:x+w]
-    # detect features in the current image
     current_keypoints, current_descriptors = \
         feature_detector.detectAndCompute(current_frame, None)
-    # match the features from the reference image to the current image
-    reference_keypoints, reference_descriptors = \
-        feature_detector.detectAndCompute(reference, None)
     matches = matcher.match(reference_descriptors, current_descriptors)
-    # -Previous
     referencePoints = np.float32([reference_keypoints[m.queryIdx].pt \
                                   for m in matches])
     imagePoints = np.float32([current_keypoints[m.trainIdx].pt \
@@ -153,14 +99,15 @@ for fname in images[1:]:
                             current_keypoints, matches, 0, 
                             flags=
                             cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
-
     cv2.imshow('matches',match_visualization)
-
     i = 0
+    # delet feature_track < 4
     while i < len(matches):
-        if feature_track[matches[i].queryIdx] < 3:
+        if feature_track[matches[i].queryIdx] < 4:
             del matches[i]
+            i -= 1
         i += 1
+
     referencePoints = np.float32([reference_keypoints[m.queryIdx].pt \
                                   for m in matches])
     imagePoints = np.float32([current_keypoints[m.trainIdx].pt \
@@ -172,60 +119,84 @@ for fname in images[1:]:
                         flags=
                         cv2.DRAW_MATCHES_FLAGS_NOT_DRAW_SINGLE_POINTS)
     cv2.imshow('track>=4, matches_after filter',match_visualization)
-    M = np.zeros((3*len(matches), len(matches) + 1))
-    print(len(matches))
-    fx = intrinsics[0][0]
-    fy = intrinsics[1][1]
-    cx = intrinsics[0][2]
-    cy = intrinsics[1][2]
-    points1_3 = np.zeros((imagePoints.shape[0], 3))
-    points2_3 = np.zeros((referencePoints.shape[0], 3))
 
-    your_pointCloud = np.zeros((len(matches), 3))
     E = np.cross(relT[imgNum], relR[imgNum], axisa = 0, axisb = 0)
     threshold = 0.005
+    curpoints_3 = np.zeros((imagePoints.shape[0], 3))
+    refpoints_3 = np.zeros((referencePoints.shape[0], 3))
     for i in range(imagePoints.shape[0]):
-        points1_3[i] = [(imagePoints[i][0] - cx)/fx, (imagePoints[i][1] - cy)/fy, 1]
-        points2_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
-        # pointsb1_3[i] = np.append(imagePoints[i], 1)
-        # pointsb2_3[i] = np.append(referencePoints[i], 1)
-        if abs(points2_3[i].dot(E).dot(points1_3[i].T)) > threshold:
-            np.delete(points1_3, i, axis = 0)
-            np.delete(points2_3, i, axis = 0)
-    for i in range(len(points1_3)):
+        curpoints_3[i] = [(imagePoints[i][0] - cx)/fx, (imagePoints[i][1] - cy)/fy, 1]
+        refpoints_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
+        if abs(np.matmul(refpoints_3[i], E).dot(np.transpose(curpoints_3[i]))) > threshold:
+            curpoints_3[i] = [0, 0, 0]
+            refpoints_3[i] = [0, 0, 0]
+    k = 0
+    print("curpoints_3.shape", curpoints_3.shape)
 
-        M[i*3][i] = np.cross(points1_3[i], relR[imgNum], axisa = 0, axisb = 0).dot(points2_3[i])[0]
-        M[i*3+1][i] = np.cross(points1_3[i], relR[imgNum], axisa = 0, axisb = 0).dot(points2_3[i])[1]
-        M[i*3+2][i] = np.cross(points1_3[i], relR[imgNum], axisa = 0, axisb = 0).dot(points2_3[i])[2]
+    while k < curpoints_3.shape[1]:
+        if np.sum(curpoints_3[k, :]) == 0:
+            curpoints_3 = np.delete(curpoints_3, k, axis = 0)
+            refpoints_3 = np.delete(refpoints_3, k, axis = 0)
+            k -= 1
+        k += 1
+    print("curpoints_3.shape", curpoints_3.shape)
+    # i = 0
+    # if abs(refpoints_3[i].dot(E).dot(curpoints_3[i].T)) > threshold:
+    #     curpoints_3 = np.delete(curpoints_3, i, axis = 0)
+    #     points_3 = np.delete(refpoints_3, i, axis = 0)
+    Mtemp = np.zeros((3*len(matches), len(reference_keypoints) + 1))
+    for i in range(curpoints_3.shape[0]):
+        Mtemp[i*3: i*3+3, matches[i].queryIdx] = np.cross(curpoints_3[i], np.matmul(relR[imgNum],refpoints_3[i]), axisa = 0, axisb = 0)
+        Mtemp[i*3:i*3+3, -1] = np.cross(curpoints_3[i], relT[imgNum], axisa = 0, axisb = 0)
+    print("Mtemp", Mtemp.shape)
 
-        M[i*3][len(points1_3)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[0]
-        M[i*3+1][len(points1_3)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[1]
-        M[i*3+1][len(points1_3)] = np.cross(points1_3[i], relT[imgNum], axisa = 0, axisb = 0)[2]
-    W,U,Vt = cv2.SVDecomp(M)
-    print("Vt", Vt)
-
-    depths = Vt[-1,:]/Vt[-1,-1]
-    print(len(depths))
-    print("depths", depths)
-    print("depths max", np.max(depths))
-
-    for i in range(len(points1_3)):
-        if abs(depths[i]) < 2:
-            your_pointCloud[i] = points2_3[i] * [1, 1, depths[i]]
-    print(np.max(your_pointCloud, axis = 0))
-    print(np.where(your_pointCloud == np.max(your_pointCloud, axis = 0)[2]))
-
-    np.savetxt('your_pointCloud.txt', your_pointCloud)
+    M = np.append(M, Mtemp, axis=0)
     imgNum += 1
     k = cv2.waitKey(1)
-
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(your_pointCloud)
-    o3d.visualization.draw_geometries([pcd])
-
+    time.sleep(2)
     if k == 27 or k==113:  #27, 113 are ascii for escape and q respectively
         #exit
         break
-    elif k == 32: #32 is ascii for space
-        continue
-    time.sleep(1)
+
+
+referencePoints = np.float32([rp.pt \
+                            for rp in reference_keypoints])
+refpoints_3 = np.zeros((referencePoints.shape[0], 3))
+for i in range(referencePoints.shape[0]):
+    refpoints_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
+
+print("M.shape before",M.shape)    
+print("referencePoints", refpoints_3.shape)
+k = 0
+while k < M.shape[1]:
+    if np.sum(M[:, k]) == 0:
+        M = np.delete(M, k, axis = 1)
+        refpoints_3 = np.delete(refpoints_3, k, axis = 0)
+        k -= 1
+    k += 1
+k = 0
+while k < M.shape[0]:
+    if np.sum(M[k, :]) == 0:
+        M = np.delete(M, k, axis = 0)
+        k -= 1
+    k += 1
+print("M.shape", M.shape)
+print("referencePoints", refpoints_3.shape)
+
+spio.savemat("M.mat", {"M":M}) # .reshape((relT.size//3, 3))})
+
+your_pointCloud = np.zeros((len(reference_keypoints), 3))
+W,U,Vt = cv2.SVDecomp(M)
+
+depths = Vt[-1,:]/Vt[-1,-1]
+
+for i in range(len(curpoints_3)):
+    if abs(depths[i]) < 3:
+        your_pointCloud[i] = refpoints_3[i] * [depths[-1], depths[-1], depths[i]]
+        # your_pointCloud[i] = refpoints_3[i] * [depths[i], depths[i], depths[i]]
+
+print(np.max(your_pointCloud, axis = 0))
+print(np.where(your_pointCloud == np.max(your_pointCloud, axis = 0)[2]))
+pcd = o3d.geometry.PointCloud()
+pcd.points = o3d.utility.Vector3dVector(your_pointCloud)
+o3d.visualization.draw_geometries([pcd])
