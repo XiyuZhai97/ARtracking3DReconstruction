@@ -128,6 +128,7 @@ intrinsics, distortion, new_intrinsics, roi = \
 cap = cv2.VideoCapture(0)
 matchflag = False
 renderflag = True
+RES = 480
 while True:
     # read the current frame from the webcam
     ret, current_frame = cap.read()
@@ -140,6 +141,7 @@ while True:
     # undistort the current frame using the loaded calibration
     current_frame = cv2.undistort(current_frame, intrinsics, distortion, None,\
                                   new_intrinsics)
+    # current_frame = cv2.resize(current_frame,(RES,RES))
     # apply region of interest cropping
     x, y, w, h = roi
     current_frame = current_frame[y:y+h, x:x+w]

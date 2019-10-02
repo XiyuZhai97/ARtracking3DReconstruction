@@ -74,7 +74,11 @@ imgNum = 1
 M = np.zeros((0, len(reference_keypoints) + 1))
 
 for fname in images[1:]:
+    
     print(fname)
+    print("relR", relR[imgNum])
+    print("relT", relT[imgNum])
+
     cap = cv2.imread(fname)
     current_frame = cv2.resize(cap,(RES,RES))
     current_frame = cv2.undistort(current_frame, intrinsics, distortion, None,\
@@ -121,19 +125,19 @@ for fname in images[1:]:
     cv2.imshow('track>=4, matches_after filter',match_visualization)
 
     E = np.cross(relT[imgNum], relR[imgNum], axisa = 0, axisb = 0)
-    threshold = 0.005
+    threshold = 0.01
     curpoints_3 = np.zeros((imagePoints.shape[0], 3))
     refpoints_3 = np.zeros((referencePoints.shape[0], 3))
     for i in range(imagePoints.shape[0]):
         curpoints_3[i] = [(imagePoints[i][0] - cx)/fx, (imagePoints[i][1] - cy)/fy, 1]
         refpoints_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
-        if abs(np.matmul(refpoints_3[i], E).dot(np.transpose(curpoints_3[i]))) > threshold:
+        if abs(np.matmul(np.matmul(refpoints_3[i], E), np.transpose(curpoints_3[i]))) > threshold:
             curpoints_3[i] = [0, 0, 0]
             refpoints_3[i] = [0, 0, 0]
     k = 0
     print("curpoints_3.shape", curpoints_3.shape)
 
-    while k < curpoints_3.shape[1]:
+    while k < curpoints_3.shape[0]:
         if np.sum(curpoints_3[k, :]) == 0:
             curpoints_3 = np.delete(curpoints_3, k, axis = 0)
             refpoints_3 = np.delete(refpoints_3, k, axis = 0)
@@ -158,9 +162,9 @@ for fname in images[1:]:
         #exit
         break
 
-
 referencePoints = np.float32([rp.pt \
                             for rp in reference_keypoints])
+
 refpoints_3 = np.zeros((referencePoints.shape[0], 3))
 for i in range(referencePoints.shape[0]):
     refpoints_3[i] = [(referencePoints[i][0] - cx)/fx, (referencePoints[i][1] - cy)/fy, 1]
@@ -184,19 +188,19 @@ print("M.shape", M.shape)
 print("referencePoints", refpoints_3.shape)
 
 spio.savemat("M.mat", {"M":M}) # .reshape((relT.size//3, 3))})
-
-your_pointCloud = np.zeros((len(reference_keypoints), 3))
+print("M", M)
+your_pointCloud = refpoints_3
 W,U,Vt = cv2.SVDecomp(M)
 
 depths = Vt[-1,:]/Vt[-1,-1]
 
-for i in range(len(curpoints_3)):
+for i in range(len(refpoints_3)):
     if abs(depths[i]) < 3:
-        your_pointCloud[i] = refpoints_3[i] * [depths[-1], depths[-1], depths[i]]
+        your_pointCloud[i,2] *= depths[i]
         # your_pointCloud[i] = refpoints_3[i] * [depths[i], depths[i], depths[i]]
 
-print(np.max(your_pointCloud, axis = 0))
-print(np.where(your_pointCloud == np.max(your_pointCloud, axis = 0)[2]))
+# print(np.max(your_pointCloud, axis = 0))
+# print(np.where(your_pointCloud == np.max(your_pointCloud, axis = 0)[2]))
 pcd = o3d.geometry.PointCloud()
 pcd.points = o3d.utility.Vector3dVector(your_pointCloud)
 o3d.visualization.draw_geometries([pcd])

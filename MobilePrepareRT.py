@@ -106,7 +106,6 @@ reference_keypoints, reference_descriptors = \
 # make image to visualize keypoints
 # keypoint_visualization = cv2.drawKeypoints(
 #         reference,reference_keypoints,outImage=np.array([]))
-
 keypoint_visualization = cv2.drawKeypoints(
         reference,reference_keypoints,outImage=np.array([]), 
         flags = cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)

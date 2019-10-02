@@ -66,7 +66,7 @@ def CalibrateCamera(directory,visualize=False):
         # read the image
         img = cv2.imread(fname)
         #  downscale your image 
-        img = cv2.resize(img,(RES,RES))
+        # img = cv2.resize(img,(RES,RES))
         # convert to grayscale (this simplifies corner detection)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
